@@ -1,0 +1,103 @@
+// Master-Slave SystemVerilog Code
+
+// Define an interface for communication
+interface MasterSlaveInterface;
+    logic clk;
+    logic reset;
+    logic [7:0] data_in;
+    logic [7:0] data_out;
+    logic valid;
+    logic ready;
+
+    // Clocking block for master
+    clocking master_cb @(posedge clk);
+        input reset;
+        input ready;
+        output data_in;
+        output valid;
+    endclocking
+
+    // Clocking block for slave
+    clocking slave_cb @(posedge clk);
+        input reset;
+        input valid;
+        input data_in;
+        output ready;
+        output data_out;
+    endclocking
+endinterface
+
+// Master module
+module Master(
+    MasterSlaveInterface ms_if
+);
+    always_ff @(posedge ms_if.clk or posedge ms_if.reset) begin
+        if (ms_if.reset) begin
+            ms_if.data_in <= 8'b0;
+            ms_if.valid <= 1'b0;
+        end else begin
+            ms_if.data_in <= $random;
+            ms_if.valid <= 1'b1;
+        end
+    end
+endmodule
+
+// Slave module
+module Slave(
+    MasterSlaveInterface ms_if
+);
+    always_ff @(posedge ms_if.clk or posedge ms_if.reset) begin
+        if (ms_if.reset) begin
+            ms_if.data_out <= 8'b0;
+            ms_if.ready <= 1'b0;
+        end else if (ms_if.valid) begin
+            ms_if.data_out <= ms_if.data_in + 1; // Simple processing
+            ms_if.ready <= 1'b1;
+        end else begin
+            ms_if.ready <= 1'b0;
+        end
+    end
+endmodule
+
+// Top-level module
+module MasterSlaveSystem;
+    logic clk;
+    logic reset;
+
+    // Instantiate the interface
+    MasterSlaveInterface ms_if();
+
+    // Instantiate Master and Slave
+    Master master_inst (
+        .ms_if(ms_if)
+    );
+
+    Slave slave_inst (
+        .ms_if(ms_if)
+    );
+
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;
+    end
+
+    // Connect clock and reset to interface
+    assign ms_if.clk = clk;
+    assign ms_if.reset = reset;
+
+    // Reset logic
+    initial begin
+        reset = 1;
+        #10 reset = 0;
+    end
+
+    // Assertions
+    always_ff @(posedge clk) begin
+        if (ms_if.valid && !ms_if.ready) begin
+            $error("Handshake protocol failed!");
+        end
+    end
+endmodule
+
+
