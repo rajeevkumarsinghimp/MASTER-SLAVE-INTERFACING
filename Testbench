@@ -1,0 +1,48 @@
+module Testbench;
+    logic clk;
+    logic reset;
+
+    // Instantiate the interface
+    MasterSlaveInterface ms_if();
+
+    // Instantiate Master and Slave
+    Master master_inst (
+        .ms_if(ms_if)
+    );
+
+    Slave slave_inst (
+        .ms_if(ms_if)
+    );
+
+    // Clock generation
+    initial begin
+        clk = 0;
+        forever #5 clk = ~clk;
+    end
+
+    // Connect clock and reset to interface
+    assign ms_if.clk = clk;
+    assign ms_if.reset = reset;
+
+    // Reset logic
+    initial begin
+        reset = 1;
+        #10 reset = 0;
+    end
+
+    // Monitor signals
+    initial begin
+        $monitor("Time: %0t | Reset: %0b | Master Valid: %0b | Master Data: %0h | Slave Ready: %0b | Slave Data: %0h",
+                 $time, reset, ms_if.valid, ms_if.data_in, ms_if.ready, ms_if.data_out);
+
+        // Apply stimulus
+        #15;
+        repeat (10) begin
+            @(posedge clk);
+        end
+
+        // Stop simulation
+        #100;
+        $stop;
+    end
+endmodule
